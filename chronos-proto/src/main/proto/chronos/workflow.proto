@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package chronos;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "io.chronos.proto";
+option java_outer_classname = "WorkflowProto";
+
+// The lifecycle status of a workflow execution.
+enum WorkflowStatus {
+  WORKFLOW_STATUS_UNSPECIFIED = 0;
+  RUNNING = 1;
+  COMPLETED = 2;
+  FAILED = 3;
+}
+
+// A durable handle to a single workflow execution.
+message WorkflowExecution {
+  // Unique identifier (UUID) for this execution.
+  string workflow_id = 1;
+
+  // Logical type/name of the workflow, e.g. "ORDER_CHECKOUT".
+  string workflow_type = 2;
+
+  // Current lifecycle status.
+  WorkflowStatus status = 3;
+
+  // UTC instant at which this execution started.
+  google.protobuf.Timestamp start_time = 4;
+
+  // UTC instant at which this execution finished (unset while RUNNING).
+  google.protobuf.Timestamp end_time = 5;
+}
+
+// Opaque payload handed to (and returned from) a task executor.
+message TaskPayload {
+  // Unique identifier for the task.
+  string task_id = 1;
+
+  // Owning workflow execution.
+  string workflow_id = 2;
+
+  // Logical task type, e.g. "PROCESS_PAYMENT" or "RESERVE_INVENTORY".
+  string task_type = 3;
+
+  // Serialized input data (JSON, Avro, etc.) - opaque to the engine.
+  bytes input = 4;
+
+  // Optional metadata propagated to the worker.
+  map<string, string> headers = 5;
+}
+
+// Emitted when a workflow execution begins.
+message WorkflowExecutionStarted {
+  string workflow_id = 1;
+  string workflow_type = 2;
+  TaskPayload input = 3;
+}
+
+// Emitted when a task is scheduled for a worker to execute.
+message TaskScheduled {
+  string task_id = 1;
+  string task_type = 2;
+  TaskPayload payload = 3;
+}
+
+// Emitted when a worker successfully completes a task.
+message TaskCompleted {
+  string task_id = 1;
+  bytes result = 2;
+}
+
+// Emitted when a worker fails to complete a task.
+message TaskFailed {
+  string task_id = 1;
+  string error_message = 2;
+  string stack_trace = 3;
+}
+
+// An append-only history event belonging to a workflow execution.
+message HistoryEvent {
+  // Unique identifier (UUID) for this event.
+  string event_id = 1;
+
+  // Monotonic sequence number within the owning workflow execution.
+  int64 sequence_id = 2;
+
+  // Owning workflow execution.
+  string workflow_id = 3;
+
+  // UTC instant at which this event was recorded.
+  google.protobuf.Timestamp event_time = 4;
+
+  oneof event {
+    WorkflowExecutionStarted workflow_execution_started = 10;
+    TaskScheduled task_scheduled = 11;
+    TaskCompleted task_completed = 12;
+    TaskFailed task_failed = 13;
+  }
+}

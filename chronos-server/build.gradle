@@ -1,6 +1,15 @@
 plugins {
-    //id 'org.springframework.boot'
+    // Applied so that the spring-boot-dependencies BOM is imported and the
+    // unversioned Spring/Kafka/PostgreSQL/Lombok dependencies below resolve.
+    id 'org.springframework.boot'
     id 'io.spring.dependency-management'
+}
+
+// This module has no @SpringBootApplication class yet, so bootJar cannot resolve
+// a main class. Keep packaging disabled until the server's main class is added,
+// then remove this block.
+tasks.named('bootJar') {
+    enabled = false
 }
 
 dependencies {
@@ -13,7 +22,7 @@ dependencies {
     
     // Database & gRPC Server
     implementation 'org.postgresql:postgresql'
-    implementation 'net.devh:grpc-server-spring-boot-starter:2.15.0.RELEASE'
+    implementation 'net.devh:grpc-server-spring-boot-starter:3.1.0.RELEASE'
 
     // Boilerplate
     compileOnly 'org.projectlombok:lombok'

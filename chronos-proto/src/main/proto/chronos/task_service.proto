@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package chronos;
+
+import "chronos/workflow.proto";
+
+option java_multiple_files = true;
+option java_package = "io.chronos.proto";
+option java_outer_classname = "TaskServiceProto";
+
+// Request sent by a worker when polling for the next available task.
+message PollTaskQueueRequest {
+  // Optional filter. When non-empty, the worker only receives tasks whose
+  // type matches one of the listed values. Empty means "any task type".
+  repeated string task_types = 1;
+
+  // How long (in milliseconds) the server should hold the poll open while
+  // waiting for a task before returning an empty response.
+  int64 poll_timeout_ms = 2;
+}
+
+// Response containing either a task to execute or an empty (timed-out) result.
+message PollTaskQueueResponse {
+  // True when a task was available; false means the poll timed out empty.
+  bool has_task = 1;
+
+  // The task to execute. Present only when has_task is true.
+  TaskPayload payload = 2;
+}
+
+// Request reporting the successful completion of a task.
+message RecordTaskCompletionRequest {
+  string task_id = 1;
+  string workflow_id = 2;
+  bytes result = 3;
+}
+
+message RecordTaskCompletionResponse {
+  bool acknowledged = 1;
+}
+
+// Request reporting the failure of a task.
+message RecordTaskFailureRequest {
+  string task_id = 1;
+  string workflow_id = 2;
+  string error_message = 3;
+  string stack_trace = 4;
+}
+
+message RecordTaskFailureResponse {
+  bool acknowledged = 1;
+}
+
+// TaskService is the RPC contract between chronos-server and worker clients.
+//
+// PollTaskQueue is a unary long-poll: the server holds the request open up to
+// poll_timeout_ms waiting for a task, mirroring Temporal's pull-based dispatch.
+// A worker only polls when it has a free slot, which provides natural
+// backpressure without the complexity of server-streaming flow control.
+service TaskService {
+  // Fetches the next available task for the calling worker to execute.
+  rpc PollTaskQueue(PollTaskQueueRequest) returns (PollTaskQueueResponse);
+
+  // Reports the successful completion of a previously polled task.
+  rpc RecordTaskCompletion(RecordTaskCompletionRequest) returns (RecordTaskCompletionResponse);
+
+  // Reports the failure of a previously polled task.
+  rpc RecordTaskFailure(RecordTaskFailureRequest) returns (RecordTaskFailureResponse);
+}

@@ -3,8 +3,14 @@ package io.chronos.server.grpc;
 import io.chronos.proto.PollTaskQueueRequest;
 import io.chronos.proto.PollTaskQueueResponse;
 import io.chronos.proto.TaskPayload;
+import io.chronos.proto.RecordTaskCompletionRequest;
+import io.chronos.proto.RecordTaskCompletionResponse;
+import io.chronos.proto.RecordTaskFailureRequest;
+import io.chronos.proto.RecordTaskFailureResponse;
 import io.chronos.proto.TaskServiceGrpc;
+import io.chronos.server.exception.WorkflowNotFoundException;
 import io.chronos.server.messaging.TaskQueue;
+import io.chronos.server.service.WorkflowService;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.util.HashSet;
@@ -29,9 +35,11 @@ public class TaskServiceImpl extends TaskServiceGrpc.TaskServiceImplBase {
     private static final long DEFAULT_POLL_TIMEOUT_MS = 5_000L;
 
     private final TaskQueue taskQueue;
+    private final WorkflowService workflowService;
 
-    public TaskServiceImpl(TaskQueue taskQueue) {
+    public TaskServiceImpl(TaskQueue taskQueue, WorkflowService workflowService) {
         this.taskQueue = taskQueue;
+        this.workflowService = workflowService;
     }
 
     @Override
@@ -84,6 +92,63 @@ public class TaskServiceImpl extends TaskServiceGrpc.TaskServiceImplBase {
             log.warn("Task polling was interrupted", e);
             responseObserver.onError(Status.INTERNAL
                 .withDescription("Task polling was interrupted")
+                .withCause(e)
+                .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void recordTaskCompletion(
+        RecordTaskCompletionRequest request,
+        StreamObserver<RecordTaskCompletionResponse> responseObserver
+    ) {
+        try {
+            workflowService.recordTaskCompletion(
+                request.getWorkflowId(),
+                request.getTaskId(),
+                request.getResult());
+            responseObserver.onNext(RecordTaskCompletionResponse.newBuilder()
+                .setAcknowledged(true)
+                .build());
+            responseObserver.onCompleted();
+        } catch (WorkflowNotFoundException e) {
+            log.warn("recordTaskCompletion rejected: {}", e.getMessage());
+            responseObserver.onError(Status.NOT_FOUND
+                .withDescription(e.getMessage())
+                .asRuntimeException());
+        } catch (Exception e) {
+            log.error("Failed to record task completion for task {}", request.getTaskId(), e);
+            responseObserver.onError(Status.INTERNAL
+                .withDescription("Failed to record task completion")
+                .withCause(e)
+                .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void recordTaskFailure(
+        RecordTaskFailureRequest request,
+        StreamObserver<RecordTaskFailureResponse> responseObserver
+    ) {
+        try {
+            workflowService.recordTaskFailure(
+                request.getWorkflowId(),
+                request.getTaskId(),
+                request.getErrorMessage(),
+                request.getStackTrace());
+            responseObserver.onNext(RecordTaskFailureResponse.newBuilder()
+                .setAcknowledged(true)
+                .build());
+            responseObserver.onCompleted();
+        } catch (WorkflowNotFoundException e) {
+            log.warn("recordTaskFailure rejected: {}", e.getMessage());
+            responseObserver.onError(Status.NOT_FOUND
+                .withDescription(e.getMessage())
+                .asRuntimeException());
+        } catch (Exception e) {
+            log.error("Failed to record task failure for task {}", request.getTaskId(), e);
+            responseObserver.onError(Status.INTERNAL
+                .withDescription("Failed to record task failure")
                 .withCause(e)
                 .asRuntimeException());
         }

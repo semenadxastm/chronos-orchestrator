@@ -7,3 +7,6 @@ build
 
 # Ignore Kotlin plugin data
 .Kotlin
+
+# AI developer context (local only, never committed)
+AGENTS.md

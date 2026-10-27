@@ -6,4 +6,8 @@ plugins {
 dependencies {
     implementation project(':chronos-worker-client')
     implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Boilerplate
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 }

@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: demo-app
+
+# Worker-client configuration
+chronos:
+  grpc:
+    host: ${CHRONOS_GRPC_HOST:localhost}
+    port: ${CHRONOS_GRPC_PORT:9090}
+  worker:
+    poller-count: ${CHRONOS_WORKER_POLLER_COUNT:2}
+    poll-timeout-ms: ${CHRONOS_WORKER_POLL_TIMEOUT_MS:5000}
